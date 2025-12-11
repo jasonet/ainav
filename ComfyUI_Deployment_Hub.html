@@ -1,0 +1,631 @@
+<!-- Chosen Palette: Dark Mode Developer Theme (Slate/Emerald/Cyan) - Inspiring a terminal/IDE feel appropriate for technical deployment tasks. -->
+<!-- Application Structure Plan: 
+    1. Hero Section: Title and objective summary.
+    2. Interactive Resource Estimator (Chart.js): Visualizes VRAM requirements for different models mentioned in the guide (Flux, SVD, SV4D) to help users plan hardware.
+    3. Progressive Deployment Guide (Main Content): A vertical stepper layout divided into the 6 stages from the source report.
+        - Stages are collapsible/expandable.
+        - Code snippets have "Copy" functionality.
+        - "Model Management" stage uses tabs to switch between Flux, SVD, and SV4D specific file structures to avoid clutter.
+    4. Workflow Visualizer: CSS-based flowcharts representing the node connections described for Flux and SV4D.
+    5. Troubleshooting & Optimization: Grid of cards for quick solutions and pro tips.
+    6. Navigation: Sticky table of contents for quick jumping.
+    WHY: This structure transforms a linear markdown file into an actionable, tool-like experience. The VRAM chart adds immediate value for decision making. The tabbed model section reduces cognitive load.
+-->
+<!-- Visualization & Content Choices:
+    - VRAM Usage Chart (Chart.js): Goal -> Inform/Compare. Visualizes the "Low VRAM" warnings and model requirements. Justification: Helps users immediately assess if their hardware fits.
+    - File Tree Visuals (HTML/CSS + Unicode): Goal -> Organize. Shows folder structures clearly. Justification: Clearer than text paths.
+    - Workflow Node Diagrams (HTML/CSS Flexbox): Goal -> Explain. Visualizes the abstract "connect A to B" instructions. Justification: Visual learners need to see the node flow.
+    - Interaction: Tab switching for models, Copy buttons for code, Accordions for steps.
+-->
+<!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ComfyUI 全能部署中心 (Flux/SVD/SV4D)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #0f172a; /* Slate 900 */
+            color: #e2e8f0; /* Slate 200 */
+        }
+        .mono {
+            font-family: 'JetBrains+Mono', monospace;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            height: 300px;
+        }
+        .code-block {
+            background-color: #1e293b; /* Slate 800 */
+            border-radius: 0.5rem;
+            border: 1px solid #334155;
+            position: relative;
+            overflow: hidden;
+        }
+        .copy-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background-color: #334155;
+            color: #94a3b8;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .copy-btn:hover {
+            background-color: #475569;
+            color: #fff;
+        }
+        .copy-btn.copied {
+            background-color: #10b981;
+            color: white;
+        }
+        /* Workflow Diagram Styles */
+        .node-box {
+            background-color: #334155;
+            border: 2px solid #64748b;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            width: 140px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            position: relative;
+        }
+        .arrow-right::after {
+            content: "→";
+            font-size: 24px;
+            color: #94a3b8;
+            margin: 0 10px;
+        }
+        .workflow-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b; 
+        }
+    </style>
+</head>
+<body class="antialiased selection:bg-cyan-500 selection:text-white">
+
+    <!-- Navigation -->
+    <nav class="sticky top-0 z-50 bg-slate-900/95 backdrop-blur border-b border-slate-700">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">🚀</span>
+                    <span class="font-bold text-xl text-cyan-400 tracking-tight">ComfyUI 部署中心</span>
+                </div>
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <button onclick="scrollToSection('environment')" class="text-slate-300 hover:text-white hover:bg-slate-700 px-3 py-2 rounded-md text-sm font-medium transition">環境準備</button>
+                        <button onclick="scrollToSection('models')" class="text-slate-300 hover:text-white hover:bg-slate-700 px-3 py-2 rounded-md text-sm font-medium transition">模型配置</button>
+                        <button onclick="scrollToSection('workflows')" class="text-slate-300 hover:text-white hover:bg-slate-700 px-3 py-2 rounded-md text-sm font-medium transition">工作流</button>
+                        <button onclick="scrollToSection('tips')" class="text-slate-300 hover:text-white hover:bg-slate-700 px-3 py-2 rounded-md text-sm font-medium transition">優化與除錯</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- Hero Section -->
+        <div class="text-center mb-12">
+            <h1 class="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-emerald-400 mb-4">
+                Ubuntu + ComfyUI 全能部署指南
+            </h1>
+            <p class="text-xl text-slate-400 max-w-3xl mx-auto">
+                一站式整合 Flux.1 Dev (最強開源文生圖)、SVD (圖生視頻) 與 SV4D (3D 動態視角)。
+                專為 Ubuntu 22.04/24.04 系統設計。
+            </p>
+        </div>
+
+        <!-- VRAM Analysis Section -->
+        <section class="mb-16 bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-xl">
+            <div class="flex flex-col md:flex-row gap-8 items-center">
+                <div class="w-full md:w-1/3">
+                    <h2 class="text-2xl font-bold text-white mb-4">硬體需求分析</h2>
+                    <p class="text-slate-300 mb-4">
+                        部署前請先評估您的顯卡 VRAM。Flux.1 Dev 是目前對硬體要求最高的模型之一。本圖表基於指南中的建議與量化優化方案進行估算。
+                    </p>
+                    <ul class="space-y-2 text-sm text-slate-400">
+                        <li class="flex items-center gap-2"><span class="w-2 h-2 bg-red-500 rounded-full"></span> 建議配置: 24GB+ (RTX 3090/4090)</li>
+                        <li class="flex items-center gap-2"><span class="w-2 h-2 bg-yellow-500 rounded-full"></span> 量化配置: 12GB+ (FP8/GGUF)</li>
+                        <li class="flex items-center gap-2"><span class="w-2 h-2 bg-blue-500 rounded-full"></span> 基礎配置: 8GB+ (SVD/SV4D)</li>
+                    </ul>
+                </div>
+                <div class="w-full md:w-2/3">
+                    <div class="chart-container">
+                        <canvas id="vramChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Deployment Steps -->
+        <div class="space-y-8" id="environment">
+            
+            <!-- Stage 1 & 2: Environment & Installation -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- System Prep -->
+                <div class="bg-slate-800 rounded-xl p-6 border-l-4 border-cyan-500 shadow-lg">
+                    <div class="flex items-center gap-3 mb-4">
+                        <span class="bg-cyan-900 text-cyan-300 w-8 h-8 flex items-center justify-center rounded-full font-bold">1</span>
+                        <h3 class="text-xl font-bold text-white">系統環境準備</h3>
+                    </div>
+                    <p class="text-slate-400 mb-4 text-sm">確保系統驅動與基礎依賴是最新的。這是穩定運行的基礎。</p>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <p class="text-xs text-slate-500 mb-1 uppercase tracking-wider font-bold">更新系統工具</p>
+                            <div class="code-block p-3">
+                                <button class="copy-btn" onclick="copyCode(this)">複製</button>
+                                <code class="text-sm text-green-400 mono block whitespace-pre-wrap">sudo apt update && sudo apt upgrade -y
+sudo apt install -y git python3-venv python3-pip build-essential libgl1 libglib2.0-0</code>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-xs text-slate-500 mb-1 uppercase tracking-wider font-bold">驗證 NVIDIA 驅動 (需 CUDA 12.1+)</p>
+                            <div class="code-block p-3">
+                                <button class="copy-btn" onclick="copyCode(this)">複製</button>
+                                <code class="text-sm text-green-400 mono block">nvidia-smi</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ComfyUI Setup -->
+                <div class="bg-slate-800 rounded-xl p-6 border-l-4 border-emerald-500 shadow-lg">
+                    <div class="flex items-center gap-3 mb-4">
+                        <span class="bg-emerald-900 text-emerald-300 w-8 h-8 flex items-center justify-center rounded-full font-bold">2</span>
+                        <h3 class="text-xl font-bold text-white">安裝 ComfyUI 與依賴</h3>
+                    </div>
+                    <p class="text-slate-400 mb-4 text-sm">使用虛擬環境隔離依賴，並安裝關鍵的 PyTorch 版本。</p>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <p class="text-xs text-slate-500 mb-1 uppercase tracking-wider font-bold">克隆與虛擬環境</p>
+                            <div class="code-block p-3">
+                                <button class="copy-btn" onclick="copyCode(this)">複製</button>
+                                <code class="text-sm text-green-400 mono block whitespace-pre-wrap">cd ~
+git clone https://github.com/comfyanonymous/ComfyUI.git
+cd ComfyUI
+python3 -m venv venv
+source venv/bin/activate</code>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-xs text-slate-500 mb-1 uppercase tracking-wider font-bold">安裝 PyTorch (CUDA 12.1)</p>
+                            <div class="code-block p-3">
+                                <button class="copy-btn" onclick="copyCode(this)">複製</button>
+                                <code class="text-sm text-green-400 mono block whitespace-pre-wrap">pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+pip install -r requirements.txt</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stage 3: ComfyUI Manager -->
+            <div class="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-lg relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-4 opacity-10">
+                    <span class="text-6xl">⚙️</span>
+                </div>
+                <h3 class="text-xl font-bold text-white mb-2">第三階段：安裝 ComfyUI Manager (必備)</h3>
+                <p class="text-slate-400 mb-4">這是一個強大的插件管理器，能自動解決節點缺失問題。</p>
+                <div class="code-block p-4 max-w-2xl">
+                    <button class="copy-btn" onclick="copyCode(this)">複製</button>
+                    <code class="text-sm text-green-400 mono block whitespace-pre-wrap">cd custom_nodes
+git clone https://github.com/ltdrdata/ComfyUI-Manager.git
+cd ..</code>
+                </div>
+            </div>
+
+            <!-- Stage 4: Model Configuration (Interactive) -->
+            <div id="models" class="bg-slate-900 rounded-xl border border-slate-700 p-1 shadow-xl">
+                <div class="bg-slate-800 rounded-t-xl p-6 border-b border-slate-700">
+                    <h2 class="text-2xl font-bold text-white">第四階段：模型下載與架構</h2>
+                    <p class="text-slate-400 mt-2">
+                        這是「三合一」部署的核心。由於 Flux 架構特殊，文件存放位置與傳統 SD 不同。
+                        <br><span class="text-yellow-400 text-sm">💡 點擊下方標籤切換不同模型的配置指南</span>
+                    </p>
+                </div>
+                
+                <!-- Tabs -->
+                <div class="flex border-b border-slate-700 bg-slate-800/50">
+                    <button onclick="switchTab('flux')" id="tab-flux" class="flex-1 py-4 text-center font-bold text-cyan-400 border-b-2 border-cyan-400 bg-slate-800 transition-colors">
+                        Flux.1 Dev (文生圖)
+                    </button>
+                    <button onclick="switchTab('svd')" id="tab-svd" class="flex-1 py-4 text-center font-bold text-slate-400 hover:text-white transition-colors">
+                        SVD (圖生視頻)
+                    </button>
+                    <button onclick="switchTab('sv4d')" id="tab-sv4d" class="flex-1 py-4 text-center font-bold text-slate-400 hover:text-white transition-colors">
+                        SV4D (3D 動態)
+                    </button>
+                </div>
+
+                <!-- Tab Contents -->
+                <div class="p-6 bg-slate-900 min-h-[400px]">
+                    
+                    <!-- Flux Content -->
+                    <div id="content-flux" class="block animate-fade-in">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div>
+                                <h4 class="text-lg font-bold text-white mb-4">Flux.1 Dev 部署邏輯</h4>
+                                <p class="text-slate-400 text-sm mb-4">Flux 需要將模型拆分為 UNET、CLIP 和 VAE 三個部分以獲得最佳性能。</p>
+                                <ul class="space-y-4">
+                                    <li class="bg-slate-800 p-3 rounded border border-slate-700">
+                                        <strong class="text-cyan-300 block mb-1">1. UNET 模型</strong>
+                                        <span class="text-xs text-slate-500 block">文件: flux1-dev.safetensors</span>
+                                        <span class="text-xs text-slate-400 mono block mt-1">存放: ComfyUI/models/unet/</span>
+                                    </li>
+                                    <li class="bg-slate-800 p-3 rounded border border-slate-700">
+                                        <strong class="text-cyan-300 block mb-1">2. CLIP 模型 (T5 + CLIP-L)</strong>
+                                        <span class="text-xs text-slate-500 block">文件: t5xxl_fp16.safetensors (或 fp8)</span>
+                                        <span class="text-xs text-slate-500 block">文件: clip_l.safetensors</span>
+                                        <span class="text-xs text-slate-400 mono block mt-1">存放: ComfyUI/models/clip/</span>
+                                    </li>
+                                    <li class="bg-slate-800 p-3 rounded border border-slate-700">
+                                        <strong class="text-cyan-300 block mb-1">3. VAE 模型</strong>
+                                        <span class="text-xs text-slate-500 block">文件: ae.safetensors</span>
+                                        <span class="text-xs text-slate-400 mono block mt-1">存放: ComfyUI/models/vae/</span>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="bg-slate-950 p-4 rounded-lg border border-slate-800 font-mono text-sm text-slate-300">
+                                <div class="text-slate-500 mb-2"># 文件結構預覽</div>
+                                <ul class="pl-2 space-y-1">
+                                    <li>📁 ComfyUI/</li>
+                                    <li class="pl-4">📁 models/</li>
+                                    <li class="pl-8 text-cyan-400">📁 unet/</li>
+                                    <li class="pl-12">📄 flux1-dev.safetensors</li>
+                                    <li class="pl-8 text-cyan-400">📁 clip/</li>
+                                    <li class="pl-12">📄 t5xxl_fp16.safetensors</li>
+                                    <li class="pl-12">📄 clip_l.safetensors</li>
+                                    <li class="pl-8 text-cyan-400">📁 vae/</li>
+                                    <li class="pl-12">📄 ae.safetensors</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SVD Content -->
+                    <div id="content-svd" class="hidden animate-fade-in">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div>
+                                <h4 class="text-lg font-bold text-white mb-4">SVD (Stable Video Diffusion) 部署</h4>
+                                <p class="text-slate-400 text-sm mb-4">SVD 是基礎的圖生視頻模型，部署相對簡單，作為標準 Checkpoint 加載。</p>
+                                <ul class="space-y-4">
+                                    <li class="bg-slate-800 p-3 rounded border border-slate-700">
+                                        <strong class="text-purple-300 block mb-1">SVD Checkpoint</strong>
+                                        <span class="text-xs text-slate-500 block">下載: stabilityai/stable-video-diffusion-img2vid-xt</span>
+                                        <span class="text-xs text-slate-500 block">文件: svd_xt.safetensors</span>
+                                        <span class="text-xs text-slate-400 mono block mt-1">存放: ComfyUI/models/checkpoints/</span>
+                                    </li>
+                                </ul>
+                            </div>
+                            <div class="bg-slate-950 p-4 rounded-lg border border-slate-800 font-mono text-sm text-slate-300">
+                                <div class="text-slate-500 mb-2"># 文件結構預覽</div>
+                                <ul class="pl-2 space-y-1">
+                                    <li>📁 ComfyUI/</li>
+                                    <li class="pl-4">📁 models/</li>
+                                    <li class="pl-8 text-purple-400">📁 checkpoints/</li>
+                                    <li class="pl-12">📄 svd_xt.safetensors</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SV4D Content -->
+                    <div id="content-sv4d" class="hidden animate-fade-in">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div>
+                                <h4 class="text-lg font-bold text-white mb-4">SV4D (Stable Video 4D) 部署</h4>
+                                <p class="text-slate-400 text-sm mb-4">SV4D 用於生成動態 3D 視角視頻（多視角生成），同樣作為 Checkpoint 加載。</p>
+                                <ul class="space-y-4">
+                                    <li class="bg-slate-800 p-3 rounded border border-slate-700">
+                                        <strong class="text-pink-300 block mb-1">SV4D Checkpoint</strong>
+                                        <span class="text-xs text-slate-500 block">下載: stabilityai/sv4d</span>
+                                        <span class="text-xs text-slate-500 block">文件: sv4d.safetensors</span>
+                                        <span class="text-xs text-slate-400 mono block mt-1">存放: ComfyUI/models/checkpoints/</span>
+                                    </li>
+                                </ul>
+                                <div class="mt-4 p-3 bg-yellow-900/30 border border-yellow-700/50 rounded">
+                                    <p class="text-xs text-yellow-200">
+                                        ⚠️ <strong>注意：</strong> SV4D 需要額外的節點支持。請在啟動後通過 Manager 安裝 <code>ComfyUI VideoHelperSuite</code> 和 <code>ComfyUI Essentials</code>。
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="bg-slate-950 p-4 rounded-lg border border-slate-800 font-mono text-sm text-slate-300">
+                                <div class="text-slate-500 mb-2"># 文件結構預覽</div>
+                                <ul class="pl-2 space-y-1">
+                                    <li>📁 ComfyUI/</li>
+                                    <li class="pl-4">📁 models/</li>
+                                    <li class="pl-8 text-pink-400">📁 checkpoints/</li>
+                                    <li class="pl-12">📄 sv4d.safetensors</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Stage 5 & 6: Startup & Workflow Visualizer -->
+            <div id="workflows" class="space-y-8">
+                <div class="bg-slate-800 rounded-xl p-6 border-l-4 border-indigo-500 shadow-lg">
+                    <h3 class="text-xl font-bold text-white mb-4">第五階段：啟動 ComfyUI</h3>
+                    <div class="code-block p-4 flex justify-between items-center">
+                        <code class="text-green-400 mono text-lg">python main.py --listen</code>
+                        <button class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded text-sm transition" onclick="copyCode(this.parentElement)">複製命令</button>
+                    </div>
+                    <p class="text-slate-400 mt-2 text-sm">瀏覽器訪問: <a href="http://127.0.0.1:8188" target="_blank" class="text-indigo-400 hover:underline">http://127.0.0.1:8188</a></p>
+                </div>
+
+                <!-- Visual Workflows -->
+                <div class="bg-slate-800 rounded-xl p-8 border border-slate-700 shadow-lg">
+                    <h2 class="text-2xl font-bold text-white mb-6 text-center">工作流搭建邏輯可視化</h2>
+                    
+                    <!-- Flux Workflow Diagram -->
+                    <div class="mb-12">
+                        <h4 class="text-cyan-400 font-bold mb-4 text-center">Flux.1 Dev 節點連接圖</h4>
+                        <div class="workflow-row bg-slate-900/50 p-6 rounded-xl border border-dashed border-slate-600">
+                            <div class="node-box text-cyan-200 border-cyan-700 arrow-right">Load Diffusion Model<br><span class="text-xs font-normal text-slate-400">flux1-dev</span></div>
+                            <div class="node-box text-blue-200 border-blue-700 arrow-right">DualCLIPLoader<br><span class="text-xs font-normal text-slate-400">t5xxl + clip_l</span></div>
+                            <div class="node-box text-green-200 border-green-700 arrow-right">BasicGuider</div>
+                            <div class="node-box text-purple-200 border-purple-700">KSampler<br><span class="text-xs font-normal text-slate-400">euler + simple</span></div>
+                        </div>
+                        <div class="text-center mt-2">
+                            <span class="inline-block px-3 py-1 bg-slate-700 text-xs rounded text-slate-300">別忘了連接 VAE Decode -> Save Image</span>
+                        </div>
+                    </div>
+
+                    <!-- SV4D Workflow Diagram -->
+                    <div>
+                        <h4 class="text-pink-400 font-bold mb-4 text-center">SV4D 3D 視頻節點連接圖</h4>
+                        <div class="workflow-row bg-slate-900/50 p-6 rounded-xl border border-dashed border-slate-600">
+                            <div class="node-box text-pink-200 border-pink-700 arrow-right">ImageOnly Checkpoint<br><span class="text-xs font-normal text-slate-400">sv4d</span></div>
+                            <div class="node-box text-orange-200 border-orange-700 arrow-right">SV4D Conditioning<br><span class="text-xs font-normal text-slate-400">軌道/仰角參數</span></div>
+                            <div class="node-box text-purple-200 border-purple-700 arrow-right">KSampler</div>
+                            <div class="node-box text-red-200 border-red-700">VideoCombine<br><span class="text-xs font-normal text-slate-400">輸出 MP4</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Optimization & Troubleshooting -->
+            <div id="tips" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Optimization Card -->
+                <div class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-6 border border-slate-700">
+                    <h3 class="text-lg font-bold text-yellow-400 mb-4 flex items-center gap-2">⚡ 性能優化建議 (Pro Tips)</h3>
+                    <ul class="space-y-3 text-sm text-slate-300">
+                        <li class="flex gap-2">
+                            <span class="text-yellow-500 font-bold">顯存不足?</span>
+                            <span>啟動時添加 <code class="bg-slate-700 px-1 rounded">--lowvram</code> 或使用 GGUF 量化模型。</span>
+                        </li>
+                        <li class="flex gap-2">
+                            <span class="text-yellow-500 font-bold">加速生成?</span>
+                            <span>安裝 <code class="bg-slate-700 px-1 rounded">pip install xformers</code> 並添加啟動參數 <code class="bg-slate-700 px-1 rounded">--use-pytorch-cross-attention</code>。</span>
+                        </li>
+                        <li class="flex gap-2">
+                            <span class="text-yellow-500 font-bold">視頻卡頓?</span>
+                            <span>SVD 幀率較低，建議使用 VideoHelperSuite 中的 RIFE 插幀節點。</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Troubleshooting Card -->
+                <div class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-6 border border-slate-700">
+                    <h3 class="text-lg font-bold text-red-400 mb-4 flex items-center gap-2">🔧 常見問題排查</h3>
+                    <div class="space-y-3">
+                        <details class="group">
+                            <summary class="flex justify-between items-center font-medium cursor-pointer list-none text-slate-300 hover:text-white transition">
+                                <span>Torch not compiled with CUDA enabled</span>
+                                <span class="transition group-open:rotate-180">▼</span>
+                            </summary>
+                            <p class="text-slate-400 text-sm mt-2 pl-4 border-l-2 border-red-500">
+                                這是最常見的錯誤。您沒有正確安裝 cu121 版本的 PyTorch。請卸載 torch 並重新執行安裝命令。
+                            </p>
+                        </details>
+                        <details class="group">
+                            <summary class="flex justify-between items-center font-medium cursor-pointer list-none text-slate-300 hover:text-white transition">
+                                <span>Flux 生成全是噪點/灰色圖</span>
+                                <span class="transition group-open:rotate-180">▼</span>
+                            </summary>
+                            <p class="text-slate-400 text-sm mt-2 pl-4 border-l-2 border-red-500">
+                                VAE 錯誤或不匹配。請確保在 "Load VAE" 節點中選擇了專用的 <code>ae.safetensors</code>，而不是 default。
+                            </p>
+                        </details>
+                        <details class="group">
+                            <summary class="flex justify-between items-center font-medium cursor-pointer list-none text-slate-300 hover:text-white transition">
+                                <span>SV4D 報錯 Out of Memory</span>
+                                <span class="transition group-open:rotate-180">▼</span>
+                            </summary>
+                            <p class="text-slate-400 text-sm mt-2 pl-4 border-l-2 border-red-500">
+                                視頻生成極其消耗顯存。嘗試減少 `video_length` (幀數) 或降低 `width`/`height` 分辨率 (建議 576x576)。
+                            </p>
+                        </details>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <footer class="border-t border-slate-800 mt-12 py-8 bg-slate-900">
+        <div class="max-w-7xl mx-auto px-4 text-center text-slate-500 text-sm">
+            <p>ComfyUI Deployment Guide Visualization</p>
+            <p class="mt-2">Based on Source Report: Ubuntu + ComfyUI 全能部署指南</p>
+        </div>
+    </footer>
+
+    <script>
+        // --- 1. Navigation Logic ---
+        function scrollToSection(id) {
+            document.getElementById(id).scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // --- 2. Tab Logic for Models ---
+        function switchTab(model) {
+            // Hide all contents
+            ['flux', 'svd', 'sv4d'].forEach(id => {
+                document.getElementById(`content-${id}`).classList.add('hidden');
+                document.getElementById(`content-${id}`).classList.remove('block');
+                
+                // Reset tab styles
+                const btn = document.getElementById(`tab-${id}`);
+                btn.classList.remove('text-cyan-400', 'border-b-2', 'border-cyan-400', 'bg-slate-800');
+                btn.classList.add('text-slate-400');
+                
+                // Colors per tab
+                if(model === 'flux' && id === 'flux') {
+                     btn.classList.add('text-cyan-400', 'border-b-2', 'border-cyan-400', 'bg-slate-800');
+                     btn.classList.remove('text-slate-400');
+                } else if(model === 'svd' && id === 'svd') {
+                     btn.classList.add('text-purple-400', 'border-b-2', 'border-purple-400', 'bg-slate-800');
+                     btn.classList.remove('text-slate-400');
+                } else if(model === 'sv4d' && id === 'sv4d') {
+                     btn.classList.add('text-pink-400', 'border-b-2', 'border-pink-400', 'bg-slate-800');
+                     btn.classList.remove('text-slate-400');
+                }
+            });
+
+            // Show selected content
+            document.getElementById(`content-${model}`).classList.remove('hidden');
+            document.getElementById(`content-${model}`).classList.add('block');
+        }
+
+        // --- 3. Copy Code Functionality ---
+        function copyCode(btn) {
+            const codeBlock = btn.nextElementSibling || btn.parentElement.querySelector('code');
+            const text = codeBlock.innerText;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = btn.innerText;
+                btn.innerText = "已複製!";
+                btn.classList.add('copied');
+                
+                setTimeout(() => {
+                    btn.innerText = originalText;
+                    btn.classList.remove('copied');
+                }, 2000);
+            });
+        }
+
+        // --- 4. Chart.js Implementation for VRAM Estimation ---
+        document.addEventListener('DOMContentLoaded', function() {
+            const ctx = document.getElementById('vramChart').getContext('2d');
+            
+            // Data based on the "Low VRAM" hints in the source text
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Flux.1 Dev (完整版)', 'Flux.1 Dev (量化 FP8)', 'SVD (圖生視頻)', 'SV4D (3D 視角)'],
+                    datasets: [{
+                        label: '估計顯存需求 (VRAM GB)',
+                        data: [24, 12, 8, 10], // Estimates based on "24GB recommended" and "Quantized drops to 12GB/8GB"
+                        backgroundColor: [
+                            'rgba(239, 68, 68, 0.7)',   // Red for High
+                            'rgba(234, 179, 8, 0.7)',   // Yellow for Med
+                            'rgba(59, 130, 246, 0.7)',  // Blue for Low
+                            'rgba(236, 72, 153, 0.7)'   // Pink for SV4D
+                        ],
+                        borderColor: [
+                            'rgba(239, 68, 68, 1)',
+                            'rgba(234, 179, 8, 1)',
+                            'rgba(59, 130, 246, 1)',
+                            'rgba(236, 72, 153, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += context.parsed.y + ' GB';
+                                    }
+                                    return label;
+                                },
+                                afterBody: function(context) {
+                                    if (context[0].dataIndex === 0) return "建議使用 RTX 3090/4090";
+                                    if (context[0].dataIndex === 1) return "使用 GGUF/FP8 可大幅降低需求";
+                                    return "解析度越高，需求越高";
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: '#334155'
+                            },
+                            ticks: {
+                                color: '#94a3b8'
+                            },
+                            title: {
+                                display: true,
+                                text: 'GB (Gigabytes)',
+                                color: '#cbd5e1'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                color: '#cbd5e1'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Initialize default tab
+            switchTab('flux');
+        });
+    </script>
+</body>
+</html>
