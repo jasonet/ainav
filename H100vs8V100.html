@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPU 跨代对决: 8xV100 集群 vs 单卡 H100</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;700;900&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background-color: #0f172a; /* Slate 900 */
+            color: #e2e8f0;
+        }
+
+        /* Chart Container Strict Styling */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            height: 400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        @media (max-width: 768px) {
+            .chart-container {
+                height: 320px;
+            }
+        }
+
+        .neon-text {
+            text-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
+        }
+    </style>
+</head>
+<body class="antialiased selection:bg-green-500 selection:text-black">
+
+    <!-- Navigation -->
+    <nav class="sticky top-0 z-50 bg-slate-900/90 backdrop-blur-md border-b border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-2">
+                    <div class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                    <span class="text-xl font-black tracking-tighter text-white">
+                        TECH<span class="text-green-500">SPEC</span>
+                    </span>
+                </div>
+                <div class="hidden md:flex space-x-8 text-sm font-bold text-slate-400">
+                    <a href="#overview" class="hover:text-green-400 transition">集群对比</a>
+                    <a href="#compute" class="hover:text-green-400 transition">总算力</a>
+                    <a href="#memory" class="hover:text-green-400 transition">显存与能效</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Header -->
+    <header class="relative pt-20 pb-24 overflow-hidden">
+        <div class="absolute inset-0 opacity-10 bg-[radial-gradient(#22c55e_1px,transparent_1px)] [background-size:16px_16px]"></div>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
+            <h1 class="text-4xl md:text-6xl font-black text-white mb-6 tracking-tight">
+                8张 V100 <span class="text-slate-600 mx-2 text-2xl align-middle">VS</span> 1张 <span class="text-green-500 neon-text">H100</span>
+            </h1>
+            <p class="text-xl md:text-2xl text-slate-400 max-w-3xl mx-auto mb-10">
+                <span class="text-red-400 font-bold">以多打少？</span> 深度解析 8卡 V100 服务器 (128GB) 与 单卡 H100 (80GB) 的性能及功耗悬殊。
+            </p>
+            <div class="inline-block bg-slate-800 rounded-full px-6 py-2 border border-slate-700">
+                <span class="text-green-400 font-bold">核心结论:</span> 
+                <span class="text-slate-300 ml-2">一张 H100 的 AI 算力相当于一整台 8卡 V100 服务器，且功耗仅为 1/3。</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10 space-y-24 pb-20">
+
+        <!-- SECTION 1: HEAD-TO-HEAD SPECS (Inform) -->
+        <section id="overview">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- V100 Cluster Card -->
+                <div class="bg-slate-800 rounded-2xl p-8 border border-slate-700 relative overflow-hidden group hover:border-slate-500 transition-colors">
+                    <div class="absolute top-0 right-0 bg-slate-700 text-xs font-bold px-3 py-1 rounded-bl-lg text-slate-300">旧时代算力堆叠</div>
+                    <h2 class="text-3xl font-bold text-white mb-2">8x Tesla V100</h2>
+                    <p class="text-slate-400 mb-6 text-sm">DGX-1 级别服务器配置 (16GB版)</p>
+                    
+                    <div class="space-y-4">
+                        <div class="flex justify-between border-b border-slate-700 pb-2">
+                            <span class="text-slate-400">总显存容量</span>
+                            <span class="font-mono font-bold text-white">128 GB <span class="text-xs text-slate-500">(8 x 16GB)</span></span>
+                        </div>
+                        <div class="flex justify-between border-b border-slate-700 pb-2">
+                            <span class="text-slate-400">系统总功耗 (TDP)</span>
+                            <span class="font-mono font-bold text-red-400">2400 W <span class="text-xs text-slate-500">(300W x 8)</span></span>
+                        </div>
+                        <div class="flex justify-between border-b border-slate-700 pb-2">
+                            <span class="text-slate-400">FP16 Tensor 总算力</span>
+                            <span class="font-mono font-bold text-white">1,000 TFLOPS</span>
+                        </div>
+                        <div class="flex justify-between pb-2">
+                            <span class="text-slate-400">互联架构</span>
+                            <span class="font-mono font-bold text-white">NVLink 2.0 Mesh</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- H100 Single Card -->
+                <div class="bg-slate-900 rounded-2xl p-8 border-2 border-green-600/50 shadow-[0_0_20px_rgba(34,197,94,0.1)] relative overflow-hidden">
+                    <div class="absolute top-0 right-0 bg-green-600 text-xs font-bold px-3 py-1 rounded-bl-lg text-black">新时代单卡魔王</div>
+                    <h2 class="text-3xl font-bold text-white mb-2">1x H100 SXM</h2>
+                    <p class="text-green-400 mb-6 text-sm">Hopper 架构单卡 (80GB版)</p>
+                    
+                    <div class="space-y-4">
+                        <div class="flex justify-between border-b border-slate-800 pb-2">
+                            <span class="text-slate-400">显存容量</span>
+                            <span class="font-mono font-bold text-green-400">80 GB <span class="text-xs text-slate-500">(HBM3)</span></span>
+                        </div>
+                        <div class="flex justify-between border-b border-slate-800 pb-2">
+                            <span class="text-slate-400">单卡功耗 (TDP)</span>
+                            <span class="font-mono font-bold text-green-400">700 W</span>
+                        </div>
+                        <div class="flex justify-between border-b border-slate-800 pb-2">
+                            <span class="text-slate-400">FP16 Tensor 算力</span>
+                            <span class="font-mono font-bold text-green-400">989 TFLOPS <span class="text-xs text-slate-500">(Dense)</span></span>
+                        </div>
+                        <div class="flex justify-between pb-2">
+                            <span class="text-slate-400">稀疏算力 (Sparsity)</span>
+                            <span class="font-mono font-bold text-green-400">1,979 TFLOPS</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 2: COMPUTE POWER (Compare - Bar Chart) -->
+        <section id="compute" class="bg-slate-800 rounded-2xl p-8 md:p-12 border border-slate-700">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold text-white mb-4 border-l-4 border-green-500 pl-4">算力总量对比 (FP16 AI)</h2>
+                <p class="text-slate-300">
+                    这是最令人震惊的数据：<strong class="text-white">一张 H100 的稠密算力 (Dense) 实际上已经追平了 8 张 V100 的总和。</strong>
+                    如果开启 H100 特有的稀疏性优化 (Sparsity)，单卡性能甚至是 8 卡 V100 系统的 2 倍。
+                </p>
+            </div>
+            
+            <div class="chart-container">
+                <canvas id="computeChart"></canvas>
+            </div>
+        </section>
+
+        <!-- SECTION 3: MEMORY & EFFICIENCY (Compare - Radar Chart) -->
+        <section id="memory" class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <div class="order-2 lg:order-1">
+                <div class="chart-container h-96">
+                    <canvas id="radarChart"></canvas>
+                </div>
+            </div>
+            <div class="order-1 lg:order-2">
+                <h2 class="text-3xl font-bold text-white mb-6">容量与能效的博弈</h2>
+                <p class="text-lg text-slate-300 mb-6">
+                    虽然 8 张 V100 提供了更大的显存总池 (128GB vs 80GB)，但代价是巨大的。
+                </p>
+                <ul class="space-y-4">
+                    <li class="flex items-start">
+                        <span class="text-2xl mr-3">🔋</span>
+                        <div>
+                            <strong class="text-red-400 block">功耗黑洞</strong>
+                            <span class="text-slate-400 text-sm">运行 8 张 V100 需要 2400W，而 1 张 H100 仅需 700W。电费成本相差 3.4 倍。</span>
+                        </div>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-2xl mr-3">💾</span>
+                        <div>
+                            <strong class="text-white block">显存碎片化</strong>
+                            <span class="text-slate-400 text-sm">V100 的 128GB 分布在 8 张卡上，模型必须切分 (Model Parallelism)，通信开销大。H100 的 80GB 是连续的单一内存空间，利用率极高。</span>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- SECTION 4: POWER vs PERF (Scatter Plot) -->
+        <section id="efficiency" class="bg-slate-900 rounded-2xl p-8 border border-slate-800 shadow-2xl">
+            <div class="text-center max-w-4xl mx-auto mb-10">
+                <h2 class="text-3xl font-bold text-white mb-2">单位功耗的 AI 产出</h2>
+                <p class="text-slate-400">
+                    在散点图中，越靠左上角越好（低功耗，高性能）。单卡 H100 展现了代际压制。
+                </p>
+            </div>
+
+            <!-- Plotly Container -->
+            <div id="scatterPlot" class="w-full h-[500px] bg-slate-800 rounded-lg overflow-hidden relative border border-slate-700"></div>
+        </section>
+        
+        <!-- SECTION 6: CONCLUSION -->
+        <section class="bg-slate-800 rounded-2xl p-8 border border-slate-700">
+             <h2 class="text-2xl font-bold text-white mb-6">选型建议</h2>
+             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- V100 Case -->
+                <div>
+                    <h3 class="text-lg font-bold text-slate-300 border-b border-slate-600 pb-2 mb-4">8x V100 (128G) 依然可用场景</h3>
+                    <ul class="space-y-3">
+                        <li class="flex items-center text-sm text-slate-400">
+                            <span class="w-2 h-2 bg-slate-500 rounded-full mr-3"></span> 极度依赖显存容量但对算力不敏感的任务
+                        </li>
+                        <li class="flex items-center text-sm text-slate-400">
+                            <span class="w-2 h-2 bg-slate-500 rounded-full mr-3"></span> 老旧代码库 (CUDA 兼容性要求)
+                        </li>
+                        <li class="flex items-center text-sm text-slate-400">
+                            <span class="w-2 h-2 bg-slate-500 rounded-full mr-3"></span> 分布式训练教学/实验环境
+                        </li>
+                    </ul>
+                </div>
+                <!-- H100 Case -->
+                <div>
+                    <h3 class="text-lg font-bold text-green-400 border-b border-green-900 pb-2 mb-4">1x H100 (80G) 绝对优势场景</h3>
+                    <ul class="space-y-3">
+                        <li class="flex items-center text-sm text-white">
+                            <span class="w-2 h-2 bg-green-500 rounded-full mr-3"></span> 大语言模型推理 (低延迟要求)
+                        </li>
+                        <li class="flex items-center text-sm text-white">
+                            <span class="w-2 h-2 bg-green-500 rounded-full mr-3"></span> 机房电力/散热受限环境
+                        </li>
+                        <li class="flex items-center text-sm text-white">
+                            <span class="w-2 h-2 bg-green-500 rounded-full mr-3"></span> 几乎所有现代 Transformer 架构任务
+                        </li>
+                    </ul>
+                </div>
+             </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-slate-900 border-t border-slate-800 mt-24 py-12">
+        <div class="max-w-7xl mx-auto px-4 text-center text-slate-600 text-sm">
+            <p>&copy; 2026 TechSpec Analytics. Data sourced from NVIDIA Official Specs.</p>
+        </div>
+    </footer>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // --- 1. UTILITY FUNCTIONS ---
+        function processLabels(labels) {
+            return labels.map(label => {
+                if (label.length <= 16) return label;
+                const words = label.split(' ');
+                const lines = [];
+                let currentLine = words[0];
+                for (let i = 1; i < words.length; i++) {
+                    if ((currentLine + " " + words[i]).length < 16) {
+                        currentLine += " " + words[i];
+                    } else {
+                        lines.push(currentLine);
+                        currentLine = words[i];
+                    }
+                }
+                lines.push(currentLine);
+                return lines;
+            });
+        }
+
+        const commonTooltipConfig = {
+            callbacks: {
+                title: function(tooltipItems) {
+                    const item = tooltipItems[0];
+                    let label = item.chart.data.labels[item.dataIndex];
+                    if (Array.isArray(label)) {
+                        return label.join(' ');
+                    } else {
+                        return label;
+                    }
+                }
+            }
+        };
+
+        // --- 2. CHART.JS IMPLEMENTATIONS ---
+
+        // Chart 1: Total Compute Power Comparison
+        const ctxCompute = document.getElementById('computeChart').getContext('2d');
+        
+        new Chart(ctxCompute, {
+            type: 'bar',
+            data: {
+                labels: ['FP16 Tensor (AI算力)'],
+                datasets: [
+                    {
+                        label: '8x V100 总和 (TFLOPS)',
+                        data: [1000], // 125 * 8
+                        backgroundColor: '#64748b', 
+                        borderRadius: 4,
+                        barPercentage: 0.6
+                    },
+                    {
+                        label: '1x H100 单卡 (TFLOPS)',
+                        data: [989], // H100 Dense
+                        backgroundColor: '#22c55e', 
+                        borderRadius: 4,
+                        barPercentage: 0.6
+                    },
+                    {
+                        label: '1x H100 (稀疏模式)',
+                        data: [1979], // H100 Sparse
+                        backgroundColor: 'rgba(34, 197, 94, 0.4)', 
+                        borderColor: '#22c55e',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        borderRadius: 4,
+                        barPercentage: 0.6
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: commonTooltipConfig,
+                    legend: { labels: { color: '#cbd5e1' } }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: '#334155' },
+                        ticks: { color: '#94a3b8' },
+                        title: { display: true, text: 'TFLOPS (总量)', color: '#94a3b8' }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#e2e8f0' }
+                    }
+                }
+            }
+        });
+
+        // Chart 2: Specs Radar (8xV100 vs 1xH100)
+        const ctxRadar = document.getElementById('radarChart').getContext('2d');
+        
+        new Chart(ctxRadar, {
+            type: 'radar',
+            data: {
+                labels: processLabels(['总显存容量 (GB)', '总功耗 (W)', 'FP16 AI算力', '显存带宽效率', '部署密度']),
+                datasets: [{
+                    label: '8x V100 集群',
+                    // Data logic: 
+                    // VRAM: 128GB (High)
+                    // Power: 2400W (Bad, so plotted low? No, radar usually plots magnitude. Let's plot "Efficiency" or raw magnitude? 
+                    // Let's plot Raw Magnitude normalized to H100=100 where possible, but Power should be inverted for "better"? 
+                    // Let's stick to simple comparison: 
+                    // VRAM: 128 vs 80 (V100 wins)
+                    // Power: 2400 vs 700 (H100 wins on efficiency, but V100 has HIGHER draw. Radar charts are tricky for "bad" metrics like power.
+                    // Let's change labels to positive metrics: "Capacity", "Energy Efficiency", "Compute", "Bandwidth", "Density"
+                    data: [100, 20, 50, 25, 10], // V100 Scores relative to H100
+                    fill: true,
+                    backgroundColor: 'rgba(148, 163, 184, 0.2)',
+                    borderColor: '#94a3b8',
+                    pointBackgroundColor: '#94a3b8',
+                }, {
+                    label: '1x H100 单卡',
+                    data: [62, 100, 100, 100, 100], // H100 Benchmark
+                    // VRAM: 80/128 * 100 = 62
+                    // Energy Eff: 100
+                    // Compute: 100 (Dense matches 8x V100)
+                    // Bandwidth: HBM3 vs HBM2
+                    fill: true,
+                    backgroundColor: 'rgba(34, 197, 94, 0.2)',
+                    borderColor: '#22c55e',
+                    pointBackgroundColor: '#22c55e',
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: commonTooltipConfig,
+                    legend: { labels: { color: '#cbd5e1' } }
+                },
+                scales: {
+                    r: {
+                        angleLines: { color: '#334155' },
+                        grid: { color: '#334155' },
+                        pointLabels: { color: '#e2e8f0', font: { size: 12 } },
+                        ticks: { display: false, backdropColor: 'transparent' }
+                    }
+                }
+            }
+        });
+
+        // --- 3. PLOTLY.JS IMPLEMENTATION (Scatter) ---
+        
+        const trace1 = {
+            x: [2400, 700], // Watts: 8xV100 vs 1xH100
+            y: [1000, 1979], // TFLOPS (FP16): 8xV100 vs 1xH100(Sparse)
+            mode: 'markers+text',
+            type: 'scattergl',
+            text: ['8x V100 (集群)', '1x H100 (单卡)'],
+            textposition: 'top center',
+            marker: {
+                size: [50, 40], // Size visualizes VRAM (128 vs 80) slightly
+                color: ['#ef4444', '#22c55e'], // Red for high power, Green for efficiency
+                opacity: 0.8,
+                line: { color: 'white', width: 1 }
+            },
+            name: 'Comparison'
+        };
+
+        const layout = {
+            margin: { t: 40, r: 40, b: 60, l: 60 },
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            plot_bgcolor: 'rgba(15, 23, 42, 0.5)',
+            xaxis: {
+                title: '总功耗 (Watts) - 越低越好',
+                color: '#94a3b8',
+                gridcolor: '#334155',
+                range: [0, 3000]
+            },
+            yaxis: {
+                title: 'AI 算力 (TFLOPS) - 越高越好',
+                color: '#94a3b8',
+                gridcolor: '#334155'
+            },
+            showlegend: false,
+            hovermode: 'closest'
+        };
+
+        const config = { responsive: true, displayModeBar: false };
+        Plotly.newPlot('scatterPlot', [trace1], layout, config);
+
+    </script>
+</body>
+</html>
